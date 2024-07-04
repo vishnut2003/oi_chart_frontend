@@ -1,10 +1,54 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import style from './OiSection.module.css';
 import { Bar, BarChart, CartesianGrid, Cell, LabelList, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import axios from 'axios';
+import moment from 'moment'
+import serverName from '@/serverName'
 
 const OiSection = () => {
+
+    const server = serverName()
+
+    const [symbols, setSymbols] = useState(['Loading...'])
+    const [expiry, setExpiry] = useState(['Loading...'])
+    const [liveData, setLiveData] = useState(true)
+    const [range, setRange] = useState(false)
+
+    useEffect(() => {
+        // Fetch symbols for filter
+        axios.get(`${server}/fyers/nfo-symbols`)
+            .then((response) => {
+                setSymbols(response.data)
+
+                // set nifty expiry in date
+                axios.get(`${server}/fyers/nifty-expiry`)
+                    .then((response) => {
+                        setExpiry(response.data)
+                    })
+                    .catch((err) => {
+                        console.log(err)
+                    })
+
+            })
+            .catch((err) => {
+                console.log(err);
+            })
+        
+    }, [])
+
+    const refreshExpiry = (e) => {
+        const symbol = e.target.value
+        axios.get(`${server}/fyers/expiry/${symbol}`)
+            .then((response) => {
+                const expiry = response.data ? response.data : []
+                setExpiry(expiry)
+            })
+            .catch((err) => {
+                console.log(err)
+            })
+    }
 
     const oiChangeData = [
         {
@@ -87,19 +131,29 @@ const OiSection = () => {
                             <p
                                 className='font-semibold text-base mb-1'
                             >Symbol</p>
-                            <select className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
-                                <option>Choose any</option>
-                                <option>Option 1</option>
-                                <option>Option 2</option>
-                                <option>Option 3</option>
-                                <option>Option 4</option>
+                            <select 
+                            onChange={refreshExpiry}
+                            className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                            >
+                                {
+                                    symbols.map((symbol, index) => (
+                                        <option key={index}>{symbol}</option>
+                                    ))
+                                }
                             </select>
                         </div>
                         <div className='mb-3 md:mb-0'>
                             <p
                                 className='font-semibold text-base mb-1'
                             >Expiry</p>
-                            <input type="date" className='w-full border-0 px-2.5 py-2 text-sm bg-white shadow-md rounded-lg' />
+                            <select className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                                
+                                {
+                                    expiry.map((data, index) => (
+                                        <option key={index}>{!data.date ? data : data.date}</option>
+                                    ))
+                                }
+                            </select>
                         </div>
 
                         <div className='mb-3 md:mb-0'>
@@ -107,11 +161,11 @@ const OiSection = () => {
                                 className='font-semibold text-base mb-1'
                             >Interval</p>
                             <select className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
-                                <option>Choose any</option>
-                                <option>Option 1</option>
-                                <option>Option 2</option>
-                                <option>Option 3</option>
-                                <option>Option 4</option>
+                                
+                                <option>1 min</option>
+                                <option>3 min</option>
+                                <option>5 min</option>
+
                             </select>
                         </div>
 
@@ -120,13 +174,24 @@ const OiSection = () => {
                                 <p
                                     className='font-semibold text-base mb-1'
                                 >Live</p>
-                                <input type="checkbox" className={style.custom_checkbox_style} />
+                                <input 
+                                type="checkbox" 
+                                defaultChecked
+                                className={style.custom_checkbox_style} 
+                                onChange={(e) => {
+                                    setLiveData(!liveData)
+                                }}
+                                />
                             </div>
                             <div className='mb-3 md:mb-0'>
                                 <p
                                     className='font-semibold text-base mb-1'
                                 >Historical Date</p>
-                                <input type="date" className='w-full border-0 px-2.5 py-2 text-sm bg-white shadow-md rounded-lg' />
+                                <input 
+                                type="date" 
+                                disabled={liveData}
+                                max={moment().format("YYYY-MM-DD")}
+                                className='w-full border-0 px-2.5 py-2 text-sm bg-white shadow-md rounded-lg disabled:text-slate-400' />
                             </div>
 
                         </div>
@@ -140,13 +205,22 @@ const OiSection = () => {
                                 <p
                                     className='font-semibold text-base mb-1'
                                 >Range</p>
-                                <input type="checkbox" className={style.custom_checkbox_style} />
+                                <input 
+                                type="checkbox" 
+                                onChange={(e) => {
+                                    setRange(!range)
+                                }}
+                                defaultChecked={range}
+                                className={style.custom_checkbox_style} 
+                                />
                             </div>
                             <div className='mb-3 md:mb-0'>
                                 <p
                                     className='font-semibold text-base mb-1'
                                 >Range Start</p>
-                                <select className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                                <select 
+                                disabled={!range}
+                                className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
                                     <option>Choose any</option>
                                     <option>Option 1</option>
                                     <option>Option 2</option>
@@ -158,7 +232,9 @@ const OiSection = () => {
                                 <p
                                     className='font-semibold text-base mb-1'
                                 >Range End</p>
-                                <select className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                                <select 
+                                disabled={!range}
+                                className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
                                     <option>Choose any</option>
                                     <option>Option 1</option>
                                     <option>Option 2</option>
