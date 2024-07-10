@@ -7,7 +7,7 @@ import axios from 'axios';
 import moment from 'moment'
 import serverName from '@/serverName'
 
-const OiSection = () => {
+const OiSection = ({oneScript, symbolSpecify}) => {
 
     const server = serverName()
 
@@ -23,7 +23,7 @@ const OiSection = () => {
                 setSymbols(response.data)
 
                 // set nifty expiry in date
-                axios.get(`${server}/fyers/nifty-expiry`)
+                axios.get(`${server}/fyers/expiry/${symbolSpecify}`)
                     .then((response) => {
                         setExpiry(response.data)
                     })
@@ -35,7 +35,7 @@ const OiSection = () => {
             .catch((err) => {
                 console.log(err);
             })
-        
+
     }, [])
 
     const refreshExpiry = (e) => {
@@ -118,8 +118,8 @@ const OiSection = () => {
     };
 
     return (
-        <div className='md:flex justify-center gap-4 items-start'>
-            <div className='md:w-3/4 flex flex-col gap-5'>
+        <div className={oneScript ? 'flex flex-col md:flex-row justify-center gap-4 items-start' : 'flex flex-col justify-center gap-4 items-start'}>
+            <div className={oneScript ? 'flex flex-col gap-5 w-full md:w-3/4' : 'flex flex-col gap-5 w-full'}>
 
                 {/* Filter Section */}
                 <div className='bg-white p-5 rounded-md'>
@@ -131,13 +131,13 @@ const OiSection = () => {
                             <p
                                 className='font-semibold text-base mb-1'
                             >Symbol</p>
-                            <select 
-                            onChange={refreshExpiry}
-                            className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                            <select
+                                onChange={refreshExpiry}
+                                className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                             >
                                 {
                                     symbols.map((symbol, index) => (
-                                        <option key={index}>{symbol}</option>
+                                        <option key={index} selected={symbol == symbolSpecify ? true : false}>{symbol}</option>
                                     ))
                                 }
                             </select>
@@ -147,10 +147,10 @@ const OiSection = () => {
                                 className='font-semibold text-base mb-1'
                             >Expiry</p>
                             <select className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
-                                
+
                                 {
                                     expiry.map((data, index) => (
-                                        <option key={index}>{!data.date ? data : data.date}</option>
+                                        <option key={index} >{!data.date ? data : data.date}</option>
                                     ))
                                 }
                             </select>
@@ -161,7 +161,7 @@ const OiSection = () => {
                                 className='font-semibold text-base mb-1'
                             >Interval</p>
                             <select className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
-                                
+
                                 <option>1 min</option>
                                 <option>3 min</option>
                                 <option>5 min</option>
@@ -174,24 +174,24 @@ const OiSection = () => {
                                 <p
                                     className='font-semibold text-base mb-1'
                                 >Live</p>
-                                <input 
-                                type="checkbox" 
-                                defaultChecked
-                                className={style.custom_checkbox_style} 
-                                onChange={(e) => {
-                                    setLiveData(!liveData)
-                                }}
+                                <input
+                                    type="checkbox"
+                                    defaultChecked
+                                    className={style.custom_checkbox_style}
+                                    onChange={(e) => {
+                                        setLiveData(!liveData)
+                                    }}
                                 />
                             </div>
                             <div className='mb-3 md:mb-0'>
                                 <p
                                     className='font-semibold text-base mb-1'
                                 >Historical Date</p>
-                                <input 
-                                type="date" 
-                                disabled={liveData}
-                                max={moment().format("YYYY-MM-DD")}
-                                className='w-full border-0 px-2.5 py-2 text-sm bg-white shadow-md rounded-lg disabled:text-slate-400' />
+                                <input
+                                    type="date"
+                                    disabled={liveData}
+                                    max={moment().format("YYYY-MM-DD")}
+                                    className='w-full border-0 px-2.5 py-2 text-sm bg-white shadow-md rounded-lg disabled:text-slate-400' />
                             </div>
 
                         </div>
@@ -205,22 +205,22 @@ const OiSection = () => {
                                 <p
                                     className='font-semibold text-base mb-1'
                                 >Range</p>
-                                <input 
-                                type="checkbox" 
-                                onChange={(e) => {
-                                    setRange(!range)
-                                }}
-                                defaultChecked={range}
-                                className={style.custom_checkbox_style} 
+                                <input
+                                    type="checkbox"
+                                    onChange={(e) => {
+                                        setRange(!range)
+                                    }}
+                                    defaultChecked={range}
+                                    className={style.custom_checkbox_style}
                                 />
                             </div>
                             <div className='mb-3 md:mb-0'>
                                 <p
                                     className='font-semibold text-base mb-1'
                                 >Range Start</p>
-                                <select 
-                                disabled={!range}
-                                className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                                <select
+                                    disabled={!range}
+                                    className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
                                     <option>Choose any</option>
                                     <option>Option 1</option>
                                     <option>Option 2</option>
@@ -232,9 +232,9 @@ const OiSection = () => {
                                 <p
                                     className='font-semibold text-base mb-1'
                                 >Range End</p>
-                                <select 
-                                disabled={!range}
-                                className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                                <select
+                                    disabled={!range}
+                                    className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
                                     <option>Choose any</option>
                                     <option>Option 1</option>
                                     <option>Option 2</option>
@@ -256,10 +256,11 @@ const OiSection = () => {
                     <h2
                         className='text-xl font-bold mb-6'
                     >Change in OI</h2>
-                    <div className='flex items-center'>
-                        <p
-                            className={style.labelLeft}
-                        >OI</p>
+                    <div className='flex flex-col'>
+                        <div className='flex justify-between text-sm font-semibold mb-2'>
+                            <p>OI</p>
+                            <p>Future</p>
+                        </div>
                         <ResponsiveContainer width={'100%'} aspect={4.0 / 1.5}>
                             <LineChart data={oiChangeData}>
 
@@ -275,9 +276,6 @@ const OiSection = () => {
                                 <Line type="monotone" dataKey="Future" stroke="#6A6A6A" yAxisId='right-axis' strokeWidth={'2px'} strokeDasharray={'4'} />
                             </LineChart>
                         </ResponsiveContainer>
-                        <p
-                            className={style.labelRight}
-                        >Future</p>
 
                     </div>
                 </div>
@@ -287,10 +285,11 @@ const OiSection = () => {
                     <h2
                         className='text-xl font-bold mb-6'
                     >Total OI</h2>
-                    <div className='flex items-center'>
-                        <p
-                            className={style.labelLeft}
-                        >OI</p>
+                    <div className='flex flex-col'>
+                        <div className='flex justify-between text-sm font-semibold mb-2'>
+                            <p>OI</p>
+                            <p>Future</p>
+                        </div>
                         <ResponsiveContainer width={'100%'} aspect={4.0 / 1.5}>
                             <LineChart data={oiChangeData}>
 
@@ -306,9 +305,6 @@ const OiSection = () => {
                                 <Line type="monotone" dataKey="Future" stroke="#6A6A6A" yAxisId='right-axis' strokeWidth={'2px'} strokeDasharray={'4'} />
                             </LineChart>
                         </ResponsiveContainer>
-                        <p
-                            className={style.labelRight}
-                        >Future</p>
 
                     </div>
                 </div>
@@ -318,10 +314,11 @@ const OiSection = () => {
                     <h2
                         className='text-xl font-bold mb-6'
                     >Difference of Put Call OI Change</h2>
-                    <div className='flex items-center'>
-                        <p
-                            className={style.labelLeft}
-                        >OI</p>
+                    <div className='flex flex-col'>
+                        <div className='flex justify-between text-sm font-semibold mb-2'>
+                            <p>OI</p>
+                            <p>Future</p>
+                        </div>
                         <ResponsiveContainer width={'100%'} aspect={4.0 / 1.5}>
                             <LineChart data={oiChangeData}>
 
@@ -336,16 +333,13 @@ const OiSection = () => {
                                 <Line type="monotone" dataKey="Future" stroke="#6A6A6A" yAxisId='right-axis' strokeWidth={'2px'} strokeDasharray={'4'} />
                             </LineChart>
                         </ResponsiveContainer>
-                        <p
-                            className={style.labelRight}
-                        >Future</p>
 
                     </div>
                 </div>
             </div>
-            <div className='md:w-1/4 sticky top-5 flex flex-col gap-5'>
+            <div className={oneScript ? 'w-full md:w-1/4 sticky top-5 flex flex-col gap-5' : 'w-full flex flex-row gap-5'}>
                 {/* Change in OI Bar Chart */}
-                <div className='bg-white p-5 rounded-md'>
+                <div className='bg-white p-5 rounded-md w-full'>
                     <h2 className='font-bold text-sm'>Change in OI</h2>
                     <div className='w-full h-56'>
                         <ResponsiveContainer>
@@ -376,8 +370,8 @@ const OiSection = () => {
                     </div>
                 </div>
 
-                 {/* Total OI */}
-                <div className='bg-white p-5 rounded-md'>
+                {/* Total OI */}
+                <div className='bg-white p-5 rounded-md w-full'>
                     <h2 className='font-bold text-sm'>Total OI</h2>
                     <div className='w-full h-56'>
                         <ResponsiveContainer>
