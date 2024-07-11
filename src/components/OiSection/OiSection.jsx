@@ -19,6 +19,8 @@ const OiSection = ({ oneScript, symbolSpecify }) => {
     const [endRange, setEndRange] = useState(['Loading...'])
     const [historical, setHistorical] = useState()
 
+    const [fullStrikeRange, setFullStrikeRange] = useState([]);
+
     useEffect(() => {
         // Fetch symbols for filter
         axios.get(`${server}/fyers/nfo-symbols`)
@@ -42,6 +44,7 @@ const OiSection = ({ oneScript, symbolSpecify }) => {
                                 if (res.data && res.data.length > 0) {
                                     setStartRange(res.data)
                                     setEndRange(res.data)
+                                    setFullStrikeRange(res.data)
                                 }
                             })
                     })
@@ -56,12 +59,7 @@ const OiSection = ({ oneScript, symbolSpecify }) => {
 
     }, [])
 
-    // Custome sleep function
-    const sleep = ms => new Promise(r => setTimeout(r, ms));
-
     const getOiData = async () => {
-
-        await sleep(5000)
 
         let historicalDate;
         let strikeRange;
@@ -78,7 +76,7 @@ const OiSection = ({ oneScript, symbolSpecify }) => {
         // set strike range
         const rangeCheckbox = document.querySelector('#range-check-box').checked
         if (!rangeCheckbox) {
-            strikeRange = startRange
+            strikeRange = fullStrikeRange
         } else if (rangeCheckbox) {
             const startStrike = document.querySelector('#start-range').value;
             const endStrike = document.querySelector('#end-range').value;
@@ -86,16 +84,16 @@ const OiSection = ({ oneScript, symbolSpecify }) => {
             let started = false;
             let ended = false
             strikeRange = []
-            for (let i = 0; i < startRange.length; i++) {
-                if (startRange[i].symbol == startStrike) {
+            for (let i = 0; i < fullStrikeRange.length; i++) {
+                if (fullStrikeRange[i].symbol == startStrike) {
                     started = true
-                } else if (startRange[i].symbol == endStrike) {
-                    strikeRange.push(startRange[i])
+                } else if (fullStrikeRange[i].symbol == endStrike) {
+                    strikeRange.push(fullStrikeRange[i])
                     ended = true
                 }
 
                 if (started && !ended) {
-                    strikeRange.push(startRange[i])
+                    strikeRange.push(fullStrikeRange[i])
                 }
             }
         }
@@ -105,9 +103,13 @@ const OiSection = ({ oneScript, symbolSpecify }) => {
             expiryDate: document.querySelector('#expiry').value,
             intervel: document.querySelector('#intervel').value,
             historical: historicalDate,
-            strikeRange
+            strikeRange: strikeRange
         }
-        console.log(formData)
+        
+        axios.post(`${server}/breeze/oi-data`, formData)
+            .then((res) => {
+                console.log(res)
+            })
     }
 
     const refreshExpiry = (e) => {
@@ -129,6 +131,7 @@ const OiSection = ({ oneScript, symbolSpecify }) => {
                 if (res.data && res.data.length > 0) {
                     setStartRange(res.data)
                     setEndRange(res.data)
+                    setFullStrikeRange(res.data)
                 }
             })
     }
@@ -209,139 +212,30 @@ const OiSection = ({ oneScript, symbolSpecify }) => {
                     <h2
                         className='text-xl font-bold mb-6'
                     >Call Vs Put Open Interest</h2>
-                    <div className='md:flex md:gap-5 mb-5'>
-                        <div className='mb-3 md:mb-0'>
-                            <p
-                                className='font-semibold text-base mb-1'
-                            >Symbol</p>
-                            <select
-                                onChange={(e) => {
-                                    refreshStrikePrice(e)
-                                    refreshExpiry(e)
-                                    getOiData()
-                                }}
-                                id='symbol'
-                                className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
-                            >
-                                {
-                                    symbols.map((symbol, index) => (
-                                        <option
-                                            key={index}
-                                            selected={symbol == symbolSpecify ? true : false}
-                                            value={symbol}
-                                        >{symbol}</option>
-                                    ))
-                                }
-                            </select>
-                        </div>
-                        <div className='mb-3 md:mb-0'>
-                            <p
-                                className='font-semibold text-base mb-1'
-                            >Expiry</p>
-                            <select
-                                onChange={(e) => {
-                                    getOiData()
-                                }}
-                                id='expiry'
-                                className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
-
-                                {
-                                    expiry.map((data, index) => (
-                                        <option key={index} value={data.date}>{!data.date ? data : data.date}</option>
-                                    ))
-                                }
-                            </select>
-                        </div>
-
-                        <div className='mb-3 md:mb-0'>
-                            <p
-                                className='font-semibold text-base mb-1'
-                            >Interval</p>
-                            <select
-                                onChange={(e) => {
-                                    getOiData()
-                                }}
-                                id='intervel'
-                                className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
-
-                                <option>1 min</option>
-                                <option>3 min</option>
-                                <option>5 min</option>
-
-                            </select>
-                        </div>
-
-                        <div className='flex justify-between items-start gap-5'>
+                    <form onSubmit={(e) => {
+                        e.preventDefault()
+                        getOiData()
+                    }}>
+                        <div className='md:flex md:gap-5 mb-5'>
                             <div className='mb-3 md:mb-0'>
                                 <p
                                     className='font-semibold text-base mb-1'
-                                >Live</p>
-                                <input
-                                    type="checkbox"
-                                    defaultChecked
-                                    className={style.custom_checkbox_style}
-                                    onChange={(e) => {
-                                        setLiveData(!liveData)
-                                        getOiData()
-                                    }}
-                                />
-                            </div>
-                            <div className='mb-3 md:mb-0'>
-                                <p
-                                    className='font-semibold text-base mb-1'
-                                >Historical Date</p>
-                                <input
-                                    type="date"
-                                    disabled={liveData}
-                                    defaultValue={historical}
-                                    max={moment().format("YYYY-MM-DD")}
-                                    onChange={(e) => {
-                                        getOiData()
-                                    }}
-                                    id='historical'
-                                    className='w-full border-0 px-2.5 py-2 text-sm bg-white shadow-md rounded-lg disabled:text-slate-400' />
-                            </div>
-
-                        </div>
-
-                    </div>
-
-                    <div className='md:flex md:gap-5'>
-
-                        <div className='flex justify-between items-start gap-5'>
-                            <div className='mb-3 md:mb-0'>
-                                <p
-                                    className='font-semibold text-base mb-1'
-                                >Range</p>
-                                <input
-                                    type="checkbox"
-                                    onChange={(e) => {
-                                        setRange(!range)
-                                        getOiData()
-                                    }}
-                                    defaultChecked={range}
-                                    id='range-check-box'
-                                    className={style.custom_checkbox_style}
-                                />
-                            </div>
-                            <div className='mb-3 md:mb-0'>
-                                <p
-                                    className='font-semibold text-base mb-1'
-                                >Range Start</p>
+                                >Symbol</p>
                                 <select
-                                    disabled={!range}
                                     onChange={(e) => {
-                                        getOiData()
+                                        refreshStrikePrice(e)
+                                        refreshExpiry(e)
                                     }}
-                                    id='start-range'
-                                    className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                                    id='symbol'
+                                    className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
+                                >
                                     {
-                                        startRange.map((range, index) => (
+                                        symbols.map((symbol, index) => (
                                             <option
                                                 key={index}
-                                                value={range.symbol}
-                                                selected={index == 0 ? true : false}
-                                            >{range.strike_price ? range.strike_price : range}</option>
+                                                selected={symbol == symbolSpecify ? true : false}
+                                                value={symbol}
+                                            >{symbol}</option>
                                         ))
                                     }
                                 </select>
@@ -349,36 +243,135 @@ const OiSection = ({ oneScript, symbolSpecify }) => {
                             <div className='mb-3 md:mb-0'>
                                 <p
                                     className='font-semibold text-base mb-1'
-                                >Range End</p>
+                                >Expiry</p>
                                 <select
-                                    disabled={!range}
-                                    onChange={(e) => {
-                                        getOiData()
-                                    }}
-                                    id='end-range'
+                                    id='expiry'
                                     className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+
                                     {
-                                        endRange.map((range, index, arr) => (
-                                            <option
-                                                key={index}
-                                                value={range.symbol}
-                                                onChange={(e) => {
-                                                    setEndStrike(e.target.value)
-                                                    getOiData()
-                                                }}
-                                                selected={index + 1 == arr.length ? true : false}
-                                            >{range.strike_price ? range.strike_price : range}</option>
+                                        expiry.map((data, index) => (
+                                            <option key={index} value={data.date}>{!data.date ? data : data.date}</option>
                                         ))
                                     }
                                 </select>
                             </div>
+
+                            <div className='mb-3 md:mb-0'>
+                                <p
+                                    className='font-semibold text-base mb-1'
+                                >Interval</p>
+                                <select
+                                    id='intervel'
+                                    className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+
+                                    <option value='1minute'>1 min</option>
+                                    <option value='5minute'>5 min</option>
+                                    <option value='30minute'>30 min</option>
+
+                                </select>
+                            </div>
+
+                            <div className='flex justify-between items-start gap-5'>
+                                <div className='mb-3 md:mb-0'>
+                                    <p
+                                        className='font-semibold text-base mb-1'
+                                    >Live</p>
+                                    <input
+                                        type="checkbox"
+                                        defaultChecked
+                                        className={style.custom_checkbox_style}
+                                        onChange={(e) => {
+                                            setLiveData(!liveData)
+                                        }}
+                                    />
+                                </div>
+                                <div className='mb-3 md:mb-0'>
+                                    <p
+                                        className='font-semibold text-base mb-1'
+                                    >Historical Date</p>
+                                    <input
+                                        type="date"
+                                        disabled={liveData}
+                                        defaultValue={historical}
+                                        max={moment().format("YYYY-MM-DD")}
+                                        id='historical'
+                                        className='w-full border-0 px-2.5 py-2 text-sm bg-white shadow-md rounded-lg disabled:text-slate-400' />
+                                </div>
+
+                            </div>
+
                         </div>
 
-                        <div className='h-full flex self-end'>
-                            <p>As of 15:30 Expiry 04-07-2024</p>
-                        </div>
+                        <div className='md:flex md:gap-5'>
 
-                    </div>
+                            <div className='flex justify-between items-start gap-5'>
+                                <div className='mb-3 md:mb-0'>
+                                    <p
+                                        className='font-semibold text-base mb-1'
+                                    >Range</p>
+                                    <input
+                                        type="checkbox"
+                                        onChange={(e) => {
+                                            setRange(!range)
+                                        }}
+                                        defaultChecked={range}
+                                        id='range-check-box'
+                                        className={style.custom_checkbox_style}
+                                    />
+                                </div>
+                                <div className='mb-3 md:mb-0'>
+                                    <p
+                                        className='font-semibold text-base mb-1'
+                                    >Range Start</p>
+                                    <select
+                                        disabled={!range}
+                                        id='start-range'
+                                        className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                                        {
+                                            startRange.map((range, index) => (
+                                                <option
+                                                    key={index}
+                                                    value={range.symbol}
+                                                    selected={index == 0 ? true : false}
+                                                >{range.strike_price ? range.strike_price : range}</option>
+                                            ))
+                                        }
+                                    </select>
+                                </div>
+                                <div className='mb-3 md:mb-0'>
+                                    <p
+                                        className='font-semibold text-base mb-1'
+                                    >Range End</p>
+                                    <select
+                                        disabled={!range}
+                                        id='end-range'
+                                        className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                                        {
+                                            endRange.map((range, index, arr) => (
+                                                <option
+                                                    key={index}
+                                                    value={range.symbol}
+                                                    onChange={(e) => {
+                                                        setEndStrike(e.target.value)
+                                                        getOiData()
+                                                    }}
+                                                    selected={index + 1 == arr.length ? true : false}
+                                                >{range.strike_price ? range.strike_price : range}</option>
+                                            ))
+                                        }
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className='h-full flex flex-col items-start gap-2'>
+                                <p>As of 15:30 Expiry 04-07-2024</p>
+                            </div>
+
+                        </div>
+                        <button 
+                                className='py-2 px-3 bg-blue-600 text-white rounded-md shadow-md shadow-blue-600 text-sm mt-3'
+                                type='submit'>Get OI</button>
+                    </form>
                 </div>
 
                 {/* Change in OI Chart */}
