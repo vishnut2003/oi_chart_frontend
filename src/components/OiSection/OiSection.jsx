@@ -7,7 +7,7 @@ import axios from 'axios';
 import moment from 'moment'
 import serverName from '@/serverName'
 
-const OiSection = ({oneScript, symbolSpecify}) => {
+const OiSection = ({ oneScript, symbolSpecify }) => {
 
     const server = serverName()
 
@@ -15,6 +15,9 @@ const OiSection = ({oneScript, symbolSpecify}) => {
     const [expiry, setExpiry] = useState(['Loading...'])
     const [liveData, setLiveData] = useState(true)
     const [range, setRange] = useState(false)
+    const [startRange, setStartRange] = useState(['Loading...'])
+    const [endRange, setEndRange] = useState(['Loading...'])
+    const [historical, setHistorical] = useState()
 
     useEffect(() => {
         // Fetch symbols for filter
@@ -26,6 +29,21 @@ const OiSection = ({oneScript, symbolSpecify}) => {
                 axios.get(`${server}/fyers/expiry/${symbolSpecify}`)
                     .then((response) => {
                         setExpiry(response.data)
+
+                        // Set Historical Date
+                        let curr = new Date();
+                        curr.setDate(curr.getDate() + 1);
+                        let date = curr.toISOString().substring(0, 10);
+                        setHistorical(date)
+
+                        // set strike price
+                        axios.get(`${server}/fyers/strike-price/${symbolSpecify}`)
+                            .then((res) => {
+                                if (res.data && res.data.length > 0) {
+                                    setStartRange(res.data)
+                                    setEndRange(res.data)
+                                }
+                            })
                     })
                     .catch((err) => {
                         console.log(err)
@@ -38,6 +56,60 @@ const OiSection = ({oneScript, symbolSpecify}) => {
 
     }, [])
 
+    // Custome sleep function
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+    const getOiData = async () => {
+
+        await sleep(5000)
+
+        let historicalDate;
+        let strikeRange;
+
+        // set live date or historic
+        if (liveData) {
+            let curr = new Date();
+            curr.setDate(curr.getDate() + 1);
+            historicalDate = curr.toISOString().substring(0, 10);
+        } else {
+            historicalDate = document.querySelector('#historical').value
+        }
+
+        // set strike range
+        const rangeCheckbox = document.querySelector('#range-check-box').checked
+        if (!rangeCheckbox) {
+            strikeRange = startRange
+        } else if (rangeCheckbox) {
+            const startStrike = document.querySelector('#start-range').value;
+            const endStrike = document.querySelector('#end-range').value;
+
+            let started = false;
+            let ended = false
+            strikeRange = []
+            for (let i = 0; i < startRange.length; i++) {
+                if (startRange[i].symbol == startStrike) {
+                    started = true
+                } else if (startRange[i].symbol == endStrike) {
+                    strikeRange.push(startRange[i])
+                    ended = true
+                }
+
+                if (started && !ended) {
+                    strikeRange.push(startRange[i])
+                }
+            }
+        }
+
+        const formData = {
+            symbol: document.querySelector('#symbol').value,
+            expiryDate: document.querySelector('#expiry').value,
+            intervel: document.querySelector('#intervel').value,
+            historical: historicalDate,
+            strikeRange
+        }
+        console.log(formData)
+    }
+
     const refreshExpiry = (e) => {
         const symbol = e.target.value
         axios.get(`${server}/fyers/expiry/${symbol}`)
@@ -47,6 +119,17 @@ const OiSection = ({oneScript, symbolSpecify}) => {
             })
             .catch((err) => {
                 console.log(err)
+            })
+    }
+
+    const refreshStrikePrice = (e) => {
+        const symbol = e.target.value;
+        axios.get(`${server}/fyers/strike-price/${symbol}`)
+            .then((res) => {
+                if (res.data && res.data.length > 0) {
+                    setStartRange(res.data)
+                    setEndRange(res.data)
+                }
             })
     }
 
@@ -132,12 +215,21 @@ const OiSection = ({oneScript, symbolSpecify}) => {
                                 className='font-semibold text-base mb-1'
                             >Symbol</p>
                             <select
-                                onChange={refreshExpiry}
+                                onChange={(e) => {
+                                    refreshStrikePrice(e)
+                                    refreshExpiry(e)
+                                    getOiData()
+                                }}
+                                id='symbol'
                                 className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500"
                             >
                                 {
                                     symbols.map((symbol, index) => (
-                                        <option key={index} selected={symbol == symbolSpecify ? true : false}>{symbol}</option>
+                                        <option
+                                            key={index}
+                                            selected={symbol == symbolSpecify ? true : false}
+                                            value={symbol}
+                                        >{symbol}</option>
                                     ))
                                 }
                             </select>
@@ -146,11 +238,16 @@ const OiSection = ({oneScript, symbolSpecify}) => {
                             <p
                                 className='font-semibold text-base mb-1'
                             >Expiry</p>
-                            <select className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                            <select
+                                onChange={(e) => {
+                                    getOiData()
+                                }}
+                                id='expiry'
+                                className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
 
                                 {
                                     expiry.map((data, index) => (
-                                        <option key={index} >{!data.date ? data : data.date}</option>
+                                        <option key={index} value={data.date}>{!data.date ? data : data.date}</option>
                                     ))
                                 }
                             </select>
@@ -160,7 +257,12 @@ const OiSection = ({oneScript, symbolSpecify}) => {
                             <p
                                 className='font-semibold text-base mb-1'
                             >Interval</p>
-                            <select className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
+                            <select
+                                onChange={(e) => {
+                                    getOiData()
+                                }}
+                                id='intervel'
+                                className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
 
                                 <option>1 min</option>
                                 <option>3 min</option>
@@ -180,6 +282,7 @@ const OiSection = ({oneScript, symbolSpecify}) => {
                                     className={style.custom_checkbox_style}
                                     onChange={(e) => {
                                         setLiveData(!liveData)
+                                        getOiData()
                                     }}
                                 />
                             </div>
@@ -190,7 +293,12 @@ const OiSection = ({oneScript, symbolSpecify}) => {
                                 <input
                                     type="date"
                                     disabled={liveData}
+                                    defaultValue={historical}
                                     max={moment().format("YYYY-MM-DD")}
+                                    onChange={(e) => {
+                                        getOiData()
+                                    }}
+                                    id='historical'
                                     className='w-full border-0 px-2.5 py-2 text-sm bg-white shadow-md rounded-lg disabled:text-slate-400' />
                             </div>
 
@@ -209,8 +317,10 @@ const OiSection = ({oneScript, symbolSpecify}) => {
                                     type="checkbox"
                                     onChange={(e) => {
                                         setRange(!range)
+                                        getOiData()
                                     }}
                                     defaultChecked={range}
+                                    id='range-check-box'
                                     className={style.custom_checkbox_style}
                                 />
                             </div>
@@ -220,12 +330,20 @@ const OiSection = ({oneScript, symbolSpecify}) => {
                                 >Range Start</p>
                                 <select
                                     disabled={!range}
+                                    onChange={(e) => {
+                                        getOiData()
+                                    }}
+                                    id='start-range'
                                     className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
-                                    <option>Choose any</option>
-                                    <option>Option 1</option>
-                                    <option>Option 2</option>
-                                    <option>Option 3</option>
-                                    <option>Option 4</option>
+                                    {
+                                        startRange.map((range, index) => (
+                                            <option
+                                                key={index}
+                                                value={range.symbol}
+                                                selected={index == 0 ? true : false}
+                                            >{range.strike_price ? range.strike_price : range}</option>
+                                        ))
+                                    }
                                 </select>
                             </div>
                             <div className='mb-3 md:mb-0'>
@@ -234,12 +352,24 @@ const OiSection = ({oneScript, symbolSpecify}) => {
                                 >Range End</p>
                                 <select
                                     disabled={!range}
+                                    onChange={(e) => {
+                                        getOiData()
+                                    }}
+                                    id='end-range'
                                     className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
-                                    <option>Choose any</option>
-                                    <option>Option 1</option>
-                                    <option>Option 2</option>
-                                    <option>Option 3</option>
-                                    <option>Option 4</option>
+                                    {
+                                        endRange.map((range, index, arr) => (
+                                            <option
+                                                key={index}
+                                                value={range.symbol}
+                                                onChange={(e) => {
+                                                    setEndStrike(e.target.value)
+                                                    getOiData()
+                                                }}
+                                                selected={index + 1 == arr.length ? true : false}
+                                            >{range.strike_price ? range.strike_price : range}</option>
+                                        ))
+                                    }
                                 </select>
                             </div>
                         </div>
