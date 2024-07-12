@@ -21,43 +21,23 @@ const OiSection = ({ oneScript, symbolSpecify }) => {
 
     const [fullStrikeRange, setFullStrikeRange] = useState([]);
 
-    useEffect(() => {
-        // Fetch symbols for filter
-        axios.get(`${server}/fyers/nfo-symbols`)
-            .then((response) => {
-                setSymbols(response.data)
+    const [oiChartData, setOiChartData] = useState([])
+    const [oiChartErr, setOiChartErr] = useState('')
+    const [oiChartLoading, setOiChartLoading] = useState(false)
 
-                // set nifty expiry in date
-                axios.get(`${server}/fyers/expiry/${symbolSpecify}`)
-                    .then((response) => {
-                        setExpiry(response.data)
-
-                        // Set Historical Date
-                        let curr = new Date();
-                        curr.setDate(curr.getDate() + 1);
-                        let date = curr.toISOString().substring(0, 10);
-                        setHistorical(date)
-
-                        // set strike price
-                        axios.get(`${server}/fyers/strike-price/${symbolSpecify}`)
-                            .then((res) => {
-                                if (res.data && res.data.length > 0) {
-                                    setStartRange(res.data)
-                                    setEndRange(res.data)
-                                    setFullStrikeRange(res.data)
-                                }
-                            })
-                    })
-                    .catch((err) => {
-                        console.log(err)
-                    })
-
-            })
-            .catch((err) => {
-                console.log(err);
-            })
-
-    }, [])
+    const DataFormater = (number) => {
+        if (number > 1000000000 || number < - 1000000000) {
+            return (number / 1000000000).toString() + 'B';
+        } else if (number > 1000000 || number < - 1000000) {
+            return (number / 1000000).toString() + 'M';
+        } else if (number > 1000 || number < - 1000) {
+            return (number / 1000).toString() + 'K';
+        } else {
+            return number.toString();
+        }
+    }
+    let xAxisDataPoints = 6;
+    let xAxisInterval = Math.round(oiChartData.length / xAxisDataPoints);
 
     const getOiData = async () => {
 
@@ -67,7 +47,7 @@ const OiSection = ({ oneScript, symbolSpecify }) => {
         // set live date or historic
         if (liveData) {
             let curr = new Date();
-            curr.setDate(curr.getDate() + 1);
+            curr.setDate(curr.getDate());
             historicalDate = curr.toISOString().substring(0, 10);
         } else {
             historicalDate = document.querySelector('#historical').value
@@ -76,10 +56,11 @@ const OiSection = ({ oneScript, symbolSpecify }) => {
         // set strike range
         const rangeCheckbox = document.querySelector('#range-check-box').checked
         if (!rangeCheckbox) {
-            strikeRange = fullStrikeRange
+            strikeRange = startRange
+            console.log(strikeRange)
         } else if (rangeCheckbox) {
-            const startStrike = document.querySelector('#start-range').value;
-            const endStrike = document.querySelector('#end-range').value;
+            const startStrike = await document.querySelector('#start-range').value;
+            const endStrike = await document.querySelector('#end-range').value;
 
             let started = false;
             let ended = false
@@ -105,11 +86,80 @@ const OiSection = ({ oneScript, symbolSpecify }) => {
             historical: historicalDate,
             strikeRange: strikeRange
         }
-        
-        axios.post(`${server}/breeze/oi-data`, formData)
+
+        setOiChartLoading(true)
+        console.log(formData)
+
+        await axios.post(`${server}/breeze/oi-data`, formData)
             .then((res) => {
+                setOiChartData(res.data)
+                setOiChartLoading(false)
                 console.log(res)
+                if (res.data.length == 0) {
+                    setOiChartErr('No Data Available')
+                } else {
+                    setOiChartErr('')
+                }
             })
+            .catch((err) => {
+                console.log(err)
+                setOiChartLoading(false)
+            })
+    }
+
+    // UseEffect
+    useEffect(() => {
+        // Fetch symbols for filter
+        axios.get(`${server}/fyers/nfo-symbols`)
+            .then((response) => {
+                setSymbols(response.data)
+
+                // set nifty expiry in date
+                axios.get(`${server}/fyers/expiry/${symbolSpecify}`)
+                    .then((response) => {
+                        setExpiry(response.data)
+
+                        // Set Historical Date
+                        let curr = new Date();
+                        curr.setDate(curr.getDate());
+                        let date = curr.toISOString().substring(0, 10);
+                        setHistorical(date)
+
+                        // set strike price
+                        axios.get(`${server}/fyers/strike-price/${symbolSpecify}`)
+                            .then(async (res) => {
+                                if (res.data && res.data.length > 0) {
+                                    setStartRange(res.data)
+                                    setEndRange(res.data)
+                                    setFullStrikeRange(res.data)
+                                }
+                                setStrikeRangeForFirst(res.data)
+                                    .then((strikes) => {
+                                        getOiData(strikes)
+                                    })
+                            })
+                    })
+                    .catch((err) => {
+                        console.log(err)
+                    })
+
+            })
+            .catch((err) => {
+                console.log(err);
+            })
+
+    }, [])
+
+    const setStrikeRangeForFirst = async (data) => {
+        return new Promise((resolve, reject) => {
+            let strikes = []
+            for (let i = 0; i < data.length; i++) {
+                strikes.push(data[i])
+            }
+            if (strikes.length > 0) {
+                resolve(strikes)
+            }
+        })
     }
 
     const refreshExpiry = (e) => {
@@ -135,57 +185,6 @@ const OiSection = ({ oneScript, symbolSpecify }) => {
                 }
             })
     }
-
-    const oiChangeData = [
-        {
-            CE: 1000,
-            PE: 5000,
-            Future: 1000,
-            time: '10:10'
-        },
-        {
-            CE: 3000,
-            PE: 4000,
-            Future: 1500,
-            time: '10:20'
-        },
-        {
-            CE: 2000,
-            PE: 6000,
-            Future: 2000,
-            time: '10:30'
-        },
-        {
-            CE: 6000,
-            PE: 5000,
-            Future: 1200,
-            time: '10:40'
-        },
-        {
-            CE: 6500,
-            PE: 3000,
-            Future: 2800,
-            time: '10:40'
-        },
-        {
-            CE: 5700,
-            PE: 1000,
-            Future: 2700,
-            time: '10:40'
-        },
-        {
-            CE: 2000,
-            PE: 3200,
-            Future: 3000,
-            time: '10:40'
-        },
-        {
-            CE: 1000,
-            PE: 1500,
-            Future: 3000,
-            time: '10:40'
-        },
-    ]
 
     const forBarChart = [
         {
@@ -264,7 +263,6 @@ const OiSection = ({ oneScript, symbolSpecify }) => {
                                     id='intervel'
                                     className="bg-white shadow-md border-0 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full p-2.5 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-blue-500 dark:focus:border-blue-500">
 
-                                    <option value='1minute'>1 min</option>
                                     <option value='5minute'>5 min</option>
                                     <option value='30minute'>30 min</option>
 
@@ -368,9 +366,16 @@ const OiSection = ({ oneScript, symbolSpecify }) => {
                             </div>
 
                         </div>
-                        <button 
-                                className='py-2 px-3 bg-blue-600 text-white rounded-md shadow-md shadow-blue-600 text-sm mt-3'
-                                type='submit'>Get OI</button>
+                        <button
+                            className='py-2 px-3 bg-blue-600 text-white rounded-md shadow-md shadow-blue-600 text-sm mt-3 flex justify-center items-center gap-2'
+                            type='submit'>
+                            {
+                                oiChartLoading &&
+                                <div
+                                    className='w-2.5 h-2.5 rounded-full border border-r-0 border-b-0 animate-spin border-white'
+                                ></div>
+                            }
+                            Get OI</button>
                     </form>
                 </div>
 
@@ -384,19 +389,25 @@ const OiSection = ({ oneScript, symbolSpecify }) => {
                             <p>OI</p>
                             <p>Future</p>
                         </div>
-                        <ResponsiveContainer width={'100%'} aspect={4.0 / 1.5}>
-                            <LineChart data={oiChangeData}>
+                        {
+                            oiChartErr &&
+                            <div>
+                                <p className='py-2 px-3 bg-red-100 text-red-500 rounded-md'>No Data Found!</p>
+                            </div>
+                        }
+                        <ResponsiveContainer width={'100%'} aspect={6.0 / 2.0}>
+                            <LineChart data={oiChartData}>
 
-                                <XAxis dataKey='time' stroke='#A7A7A7' strokeWidth={'0.5px'} className='text-xs' />
+                                <XAxis dataKey='call_date_time' stroke='#A7A7A7' strokeWidth={'0.5px'} className='text-xs' interval={xAxisInterval} />
 
-                                <YAxis name='OI' fill='black' orientation='left' yAxisId='left-axis' stroke='#A7A7A7' strokeWidth={'0.5px'} className='text-xs' />
-                                <YAxis orientation='right' yAxisId='right-axis' stroke='#A7A7A7' strokeWidth={'0.5px'} className='text-xs' />
+                                <YAxis domain={['auto', 'auto']} tickFormatter={DataFormater} name='OI' fill='black' orientation='left' yAxisId='left-axis' stroke='#A7A7A7' strokeWidth={'0.5px'} className='text-xs' />
+                                <YAxis domain={['auto', 'auto']} tickFormatter={DataFormater} orientation='right' yAxisId='right-axis' stroke='#A7A7A7' strokeWidth={'0.5px'} className='text-xs' />
 
-                                <Tooltip />
+                                <Tooltip formatter={DataFormater} />
                                 <CartesianGrid stroke="#cecece" strokeDasharray="3 3" strokeWidth={'0.5px'} />
-                                <Line type="monotone" dataKey="CE" stroke="#459962" yAxisId='left-axis' strokeWidth={'2px'} />
-                                <Line type="monotone" dataKey="PE" stroke="#C13F3F" yAxisId='left-axis' strokeWidth={'2px'} />
-                                <Line type="monotone" dataKey="Future" stroke="#6A6A6A" yAxisId='right-axis' strokeWidth={'2px'} strokeDasharray={'4'} />
+                                <Line type="monotone" dot={false} dataKey="call_oi_change" stroke="#459962" yAxisId='left-axis' strokeWidth={'1px'} />
+                                <Line type="monotone" dot={false} dataKey="put_oi_change" stroke="#C13F3F" yAxisId='left-axis' strokeWidth={'1px'} />
+                                <Line type="monotone" dot={false} dataKey="future_oi" stroke="#6A6A6A" yAxisId='right-axis' strokeWidth={'1px'} strokeDasharray={'4'} />
                             </LineChart>
                         </ResponsiveContainer>
 
@@ -413,22 +424,27 @@ const OiSection = ({ oneScript, symbolSpecify }) => {
                             <p>OI</p>
                             <p>Future</p>
                         </div>
-                        <ResponsiveContainer width={'100%'} aspect={4.0 / 1.5}>
-                            <LineChart data={oiChangeData}>
+                        {
+                            oiChartErr &&
+                            <div>
+                                <p className='py-2 px-3 bg-red-100 text-red-500 rounded-md'>No Data Found!</p>
+                            </div>
+                        }
+                        <ResponsiveContainer width={'100%'} aspect={6.0 / 2.0}>
+                            <LineChart data={oiChartData}>
 
-                                <XAxis dataKey='time' stroke='#A7A7A7' strokeWidth={'0.5px'} className='text-xs' />
+                                <XAxis dataKey='call_date_time' stroke='#A7A7A7' strokeWidth={'0.5px'} className='text-xs' interval={xAxisInterval} />
 
-                                <YAxis name='OI' fill='black' orientation='left' yAxisId='left-axis' stroke='#A7A7A7' strokeWidth={'0.5px'} className='text-xs' />
-                                <YAxis orientation='right' yAxisId='right-axis' stroke='#A7A7A7' strokeWidth={'0.5px'} className='text-xs' />
+                                <YAxis domain={['auto', 'auto']} tickFormatter={DataFormater} name='OI' fill='black' orientation='left' yAxisId='left-axis' stroke='#A7A7A7' strokeWidth={'0.5px'} className='text-xs' />
+                                <YAxis domain={['auto', 'auto']} tickFormatter={DataFormater} orientation='right' yAxisId='right-axis' stroke='#A7A7A7' strokeWidth={'0.5px'} className='text-xs' />
 
-                                <Tooltip />
+                                <Tooltip formatter={DataFormater} />
                                 <CartesianGrid stroke="#cecece" strokeDasharray="3 3" strokeWidth={'0.5px'} />
-                                <Line type="monotone" dataKey="CE" stroke="#459962" yAxisId='left-axis' strokeWidth={'2px'} />
-                                <Line type="monotone" dataKey="PE" stroke="#C13F3F" yAxisId='left-axis' strokeWidth={'2px'} />
-                                <Line type="monotone" dataKey="Future" stroke="#6A6A6A" yAxisId='right-axis' strokeWidth={'2px'} strokeDasharray={'4'} />
+                                <Line type="monotone" dot={false} dataKey="call_Oi" stroke="#459962" yAxisId='left-axis' strokeWidth={'1px'} />
+                                <Line type="monotone" dot={false} dataKey="put_Oi" stroke="#C13F3F" yAxisId='left-axis' strokeWidth={'1px'} />
+                                <Line type="monotone" dot={false} dataKey="future_oi" stroke="#6A6A6A" yAxisId='right-axis' strokeWidth={'1px'} strokeDasharray={'4'} />
                             </LineChart>
                         </ResponsiveContainer>
-
                     </div>
                 </div>
 
@@ -442,18 +458,24 @@ const OiSection = ({ oneScript, symbolSpecify }) => {
                             <p>OI</p>
                             <p>Future</p>
                         </div>
-                        <ResponsiveContainer width={'100%'} aspect={4.0 / 1.5}>
-                            <LineChart data={oiChangeData}>
+                        {
+                            oiChartErr &&
+                            <div>
+                                <p className='py-2 px-3 bg-red-100 text-red-500 rounded-md'>No Data Found!</p>
+                            </div>
+                        }
+                        <ResponsiveContainer width={'100%'} aspect={6.0 / 2.0}>
+                            <LineChart data={oiChartData}>
 
-                                <XAxis dataKey='time' stroke='#A7A7A7' strokeWidth={'0.5px'} className='text-xs' />
+                                <XAxis dataKey='call_date_time' stroke='#A7A7A7' strokeWidth={'0.5px'} className='text-xs' interval={xAxisInterval} />
 
-                                <YAxis name='OI' fill='black' orientation='left' yAxisId='left-axis' stroke='#A7A7A7' strokeWidth={'0.5px'} className='text-xs' />
-                                <YAxis orientation='right' yAxisId='right-axis' stroke='#A7A7A7' strokeWidth={'0.5px'} className='text-xs' />
+                                <YAxis domain={['auto', 'auto']} tickFormatter={DataFormater} name='OI' fill='black' orientation='left' yAxisId='left-axis' stroke='#A7A7A7' strokeWidth={'0.5px'} className='text-xs' />
+                                <YAxis domain={['auto', 'auto']} tickFormatter={DataFormater} orientation='right' yAxisId='right-axis' stroke='#A7A7A7' strokeWidth={'0.5px'} className='text-xs' />
 
-                                <Tooltip />
+                                <Tooltip formatter={DataFormater} />
                                 <CartesianGrid stroke="#cecece" strokeDasharray="3 3" strokeWidth={'0.5px'} />
-                                <Line type="monotone" dataKey="CE" stroke="#2977DB" yAxisId='left-axis' strokeWidth={'2px'} />
-                                <Line type="monotone" dataKey="Future" stroke="#6A6A6A" yAxisId='right-axis' strokeWidth={'2px'} strokeDasharray={'4'} />
+                                <Line type="monotone" dot={false} dataKey="ce_pe_diff" stroke="#2977DB" yAxisId='left-axis' strokeWidth={'1px'} />
+                                <Line type="monotone" dot={false} dataKey="future_oi" stroke="#6A6A6A" yAxisId='right-axis' strokeWidth={'1px'} />
                             </LineChart>
                         </ResponsiveContainer>
 
